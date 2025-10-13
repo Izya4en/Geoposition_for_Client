@@ -1,0 +1,48 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:16
+    container_name: tedxmaps_db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: tedx_maps
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
+    networks:
+      - tedxmaps_net
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tedxmaps_backend
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+    networks:
+      - tedxmaps_net
+    command: ["bash", "-c", "sleep 5 && ./bin/tedx-maps"]
+
+  web:
+    image: nginx:latest
+    container_name: tedxmaps_web
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./web:/usr/share/nginx/html:ro
+    networks:
+      - tedxmaps_net
+
+networks:
+  tedxmaps_net:
+    driver: bridge

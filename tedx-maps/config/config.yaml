@@ -1,0 +1,7 @@
+server_port: "8080"
+db_host: "localhost"
+db_port: "5432"
+db_user: "postgres"
+db_password: "postgres"
+db_name: "tedx_maps"
+maps_api_key: "YOUR_MAPS_API_KEY"
