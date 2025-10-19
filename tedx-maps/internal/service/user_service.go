@@ -16,12 +16,8 @@ func NewUserService(repo repository.UserRepository) *UserService {
 }
 
 func (s *UserService) Register(ctx context.Context, user *entity.User) error {
-	if user == nil || user.Email == "" || user.PasswordHash == "" {
+	if user == nil || user.Email == "" || user.Password == "" {
 		return errors.New("invalid user data")
 	}
 	return s.repo.Create(ctx, user)
-}
-
-func (s *UserService) GetUserByEmail(ctx context.Context, email string) (*entity.User, error) {
-	return s.repo.GetByEmail(ctx, email)
 }

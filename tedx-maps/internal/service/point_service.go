@@ -30,5 +30,5 @@ func (s *PointService) GetAllPoints(ctx context.Context) ([]entity.Point, error)
 }
 
 func (s *PointService) GetNearestPoints(ctx context.Context, lat, lon float64, radius float64) ([]entity.Point, error) {
-	return s.repo.GetNearest(ctx, lat, lon, radius)
+	return s.repo.GetNearestPoints(ctx, lat, lon, radius)
 }

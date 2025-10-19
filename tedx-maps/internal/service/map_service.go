@@ -4,6 +4,7 @@ import (
 	"context"
 	"tedx-maps/internal/entity"
 	"tedx-maps/pkg/mapsapi"
+	"time"
 )
 
 type MapService struct {
@@ -20,7 +21,8 @@ func (s *MapService) GetMapData(ctx context.Context, query string) (*entity.MapD
 		return nil, err
 	}
 	return &entity.MapData{
-		Source: "OSM",
-		Data:   data,
+		Source:  "OSM",
+		Updated: time.Now().Format(time.RFC3339),
+		// если хочешь, можешь потом добавить Points или Routes из `data`
 	}, nil
 }

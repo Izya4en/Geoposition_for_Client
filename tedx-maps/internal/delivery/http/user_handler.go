@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"tedx-maps/internal/entity"
-	"tedx-maps/pkg/auth"
+
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,6 +21,6 @@ func (h *Handler) RegisterUser(c *gin.Context) {
 		return
 	}
 
-	token, _ := auth.GenerateJWT(u.Email)
-	c.JSON(http.StatusCreated, gin.H{"token": token})
+
+	
 }

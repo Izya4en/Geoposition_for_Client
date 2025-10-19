@@ -16,7 +16,7 @@ func NewRouteService(repo repository.RouteRepository) *RouteService {
 }
 
 func (s *RouteService) CreateRoute(ctx context.Context, route *entity.Route) (*entity.Route, error) {
-	if route == nil || route.StartPointID == 0 || route.EndPointID == 0 {
+	if route == nil || route.FromPoint == 0 || route.ToPoint == 0 {
 		return nil, errors.New("invalid route data")
 	}
 	if err := s.repo.Create(ctx, route); err != nil {

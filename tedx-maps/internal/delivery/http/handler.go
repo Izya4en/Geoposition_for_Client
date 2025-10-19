@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"tedx-maps/internal/service"
-	"tedx-maps/pkg/auth"
+
 
 	"github.com/gin-gonic/gin"
 )
@@ -39,7 +39,7 @@ func (h *Handler) RegisterRoutes(router *gin.Engine) {
 
 	// защищённые маршруты
 	protected := api.Group("/")
-	protected.Use(auth.JWTMiddleware())
+	
 
 	{
 		protected.POST("/points", h.CreatePoint)
