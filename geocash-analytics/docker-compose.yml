@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # Наше Go-приложение
+  app:
+    build: .
+    container_name: atm_backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+    environment:
+      - DB_HOST=postgres
+      - DB_USER=postgres
+      - DB_PASSWORD=secret
+      - DB_NAME=atm_db
+      - DB_PORT=5432
+    networks:
+      - atm-network
+
+  # База данных PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: atm_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: atm_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Монтируем скрипт инициализации
+      - ./migrations/000001_init_atm_schema.up.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - atm-network
+
+volumes:
+  postgres_data:
+
+networks:
+  atm-network:
+    driver: bridge
