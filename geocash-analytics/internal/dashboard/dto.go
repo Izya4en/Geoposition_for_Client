@@ -1,15 +1,12 @@
 package dashboard
 
-import "time"
+import (
+	"geocash/internal/analytics"
+	"geocash/internal/domain/terminal"
+)
 
-// EfficiencyResponse — структура ответа API
-type EfficiencyResponse struct {
-	TerminalID int       `json:"terminal_id"`
-	Status     string    `json:"status"`     // "ЭФФЕКТИВНО" / "НЕЭФФЕКТИВНО"
-	CheckedAt  time.Time `json:"checked_at"` // Время проверки
-}
-
-// ErrorResponse — стандартная ошибка
-type ErrorResponse struct {
-	Error string `json:"error"`
+type DashboardResponse struct {
+	Forte       []terminal.ATM                     `json:"forte"`
+	Competitors []terminal.ATM                     `json:"competitors"`
+	HeatmapGrid analytics.GeoJSONFeatureCollection `json:"heatmapGrid"`
 }

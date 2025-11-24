@@ -1,112 +1,97 @@
-// internal/analytics/service.go
-
 package analytics
 
 import (
-	"context"
-	"fmt"
-	"time"
-	// Для форматирования сообщения о статусе
+	"math"
 )
 
-// Service определяет интерфейс для бизнес-логики аналитики.
-type Service interface {
-	// CalculateEfficiencyStatus определяет общий статус устройства (эффективно/неэффективно).
-	CalculateEfficiencyStatus(ctx context.Context, terminalID int) (string, error)
+// GeoJSON структуры для вывода
+type GeoJSONFeatureCollection struct {
+	Type     string           `json:"type"`
+	Features []GeoJSONFeature `json:"features"`
+}
+type GeoJSONFeature struct {
+	Type       string                 `json:"type"`
+	Properties map[string]interface{} `json:"properties"`
+	Geometry   GeoJSONGeometry        `json:"geometry"`
+}
+type GeoJSONGeometry struct {
+	Type        string        `json:"type"`
+	Coordinates [][][]float64 `json:"coordinates"`
 }
 
-// AnalyticsService содержит зависимости сервиса (например, репозиторий).
-type AnalyticsService struct {
-	repo Repository // Наш интерфейс репозитория
-	// Здесь также может быть Logger, Config и другие зависимости
+type GridService struct{}
+
+func NewGridService() *GridService {
+	return &GridService{}
 }
 
-// NewService создает и возвращает новый экземпляр AnalyticsService.
-func NewService(repo Repository) *AnalyticsService {
-	return &AnalyticsService{
-		repo: repo,
+// GenerateHexGrid создает сетку на весь город
+func (s *GridService) GenerateHexGrid() GeoJSONFeatureCollection {
+	// Координаты Астаны
+	minLat, maxLat := 51.00, 51.30
+	minLng, maxLng := 71.30, 71.65
+	radius := 0.002
+
+	var features []GeoJSONFeature
+	h := radius * math.Sin(math.Pi/3)
+	rowHeight := 1.5 * radius
+	colWidth := 2 * h
+	isOddRow := false
+
+	for lat := minLat; lat < maxLat; lat += rowHeight {
+		currLng := minLng
+		if isOddRow {
+			currLng += h
+		}
+		for lng := currLng; lng < maxLng; lng += colWidth {
+			weight := s.calculateWeight(lat, lng)
+			if weight > 0.05 {
+				poly := s.createHexagon(lat, lng, radius)
+				features = append(features, GeoJSONFeature{
+					Type:       "Feature",
+					Properties: map[string]interface{}{"weight": weight},
+					Geometry:   GeoJSONGeometry{Type: "Polygon", Coordinates: [][][]float64{poly}},
+				})
+			}
+		}
+		isOddRow = !isOddRow
 	}
+	return GeoJSONFeatureCollection{Type: "FeatureCollection", Features: features}
 }
 
-const (
-	// Пороговые значения для определения эффективности
-	MinDailyTransactions = 10.0        // Минимум 10 транзакций в день
-	MinThroughputKZT     = 5_000_000.0 // Минимум 5 миллионов KZT оборота в неделю
-	MinLoadingPercent    = 0.15        // Минимум 15% средней загрузки (чтобы не было простоя)
-	MaxLoadingPercent    = 0.85        // Максимум 85% средней загрузки (чтобы не было частых дозагрузок)
-)
-
-// CalculateEfficiencyStatus реализует бизнес-логику оценки эффективности.
-func (s *AnalyticsService) CalculateEfficiencyStatus(ctx context.Context, terminalID int) (string, error) {
-	// 1. Определяем период для анализа (например, последние 7 дней)
-	end := time.Now()
-	start := end.AddDate(0, 0, -7)
-
-	// 2. Получаем агрегированные метрики
-	metrics, err := s.repo.GetPerformanceMetricsByPeriod(ctx, terminalID, start, end)
-	if err != nil {
-		return "", fmt.Errorf("ошибка при получении метрик: %w", err)
+func (s *GridService) calculateWeight(lat, lng float64) float64 {
+	centerDist := math.Sqrt(math.Pow(lat-51.13, 2) + math.Pow(lng-71.43, 2))
+	if centerDist > 0.16 {
+		return 0
 	}
 
-	// 3. Получаем текущий остаток для оценки немедленной загруженности
-	balance, err := s.repo.GetLastKnownBalance(ctx, terminalID)
-	if err != nil {
-		// Логируем ошибку, но продолжаем, если это не критично
-		// return "", fmt.Errorf("ошибка при получении остатка: %w", err)
+	weight := 0.0
+	// Шум
+	noise := math.Sin(lat*400) * math.Cos(lng*400)
+	weight += (noise + 1) * 0.15
+
+	// Хотспоты
+	hotspots := []struct{ lat, lng, p float64 }{
+		{51.128, 71.430, 0.8}, {51.165, 71.425, 0.7}, {51.131, 71.402, 0.9},
 	}
-
-	// --- 4. Применяем Правила Оценки ---
-
-	// Переменная для сбора факторов неэффективности
-	reasons := make([]string, 0)
-	isEffective := true
-
-	// 4.1. Проверка Проходимости (Транзакции)
-	dailyTransactions := float64(metrics.TotalTransactions) / 7.0
-	if dailyTransactions < MinDailyTransactions {
-		isEffective = false
-		reasons = append(reasons, fmt.Sprintf("Низкая проходимость (%.1f транз/день < %.1f)", dailyTransactions, MinDailyTransactions))
+	for _, p := range hotspots {
+		d := math.Sqrt(math.Pow(lat-p.lat, 2) + math.Pow(lng-p.lng, 2))
+		if d < 0.035 {
+			weight += p.p * (1.0 - d/0.035)
+		}
 	}
-
-	// 4.2. Проверка Оборота (Сумма)
-	if metrics.TotalThroughputAmount < MinThroughputKZT {
-		isEffective = false
-		reasons = append(reasons, fmt.Sprintf("Низкий оборот (%.2f KZT/нед < %.2f)", metrics.TotalThroughputAmount, MinThroughputKZT))
+	if weight > 1.0 {
+		return 1.0
 	}
+	return weight
+}
 
-	// 4.3. Проверка Загруженности (Средняя)
-	if metrics.AverageLoadingPercent < MinLoadingPercent {
-		isEffective = false
-		reasons = append(reasons, fmt.Sprintf("Низкая средняя загрузка (%.1f%%), простой", metrics.AverageLoadingPercent*100))
+func (s *GridService) createHexagon(lat, lng, r float64) [][]float64 {
+	var coords [][]float64
+	aspect := 1.65
+	for i := 0; i <= 6; i++ {
+		angle := math.Pi / 180 * (60.0*float64(i) - 30.0)
+		coords = append(coords, []float64{lng + r*math.Cos(angle)*aspect, lat + r*math.Sin(angle)})
 	}
-	if metrics.AverageLoadingPercent > MaxLoadingPercent {
-		// Это может быть неэффективно из-за частых инкассаций
-		reasons = append(reasons, fmt.Sprintf("Высокая средняя загрузка (%.1f%%), частая инкассация", metrics.AverageLoadingPercent*100))
-	}
-
-	// 4.4. Проверка Истории Обслуживания (Критичность)
-	if metrics.LastServiceCriticality {
-		isEffective = false
-		reasons = append(reasons, "Был критический ремонт в течение 7 дней")
-	}
-
-	// 4.5. Проверка Текущего Остатка (Прогноз)
-	currentLoadingPercent := balance.CurrentBalance / balance.MaxCapacity
-	if currentLoadingPercent < 0.05 {
-		reasons = append(reasons, "Критически низкий текущий остаток (скоро будет пуст)")
-		// Этот фактор может быть не ключевым, но важным для мониторинга
-	}
-
-	// --- 5. Формирование Конечного Статуса ---
-	if isEffective && len(reasons) == 0 {
-		return "ЭФФЕКТИВНО", nil
-	}
-
-	// Если неэффективно, возвращаем статус и причины
-	status := "НЕЭФФЕКТИВНО"
-	if len(reasons) > 0 {
-		status += fmt.Sprintf(" (Причины: %s)", reasons)
-	}
-
-	return status, nil
+	return coords
 }

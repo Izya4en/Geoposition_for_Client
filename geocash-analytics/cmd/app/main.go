@@ -1,50 +1,33 @@
 package main
 
 import (
-	"database/sql"
-	"log"
+	"fmt"
 	"net/http"
-
-	_ "github.com/lib/pq" // Драйвер Postgres
 
 	"geocash/internal/analytics"
 	"geocash/internal/dashboard"
-	"geocash/internal/platform/postgres"
+	"geocash/internal/domain/terminal"
+	"geocash/internal/platform/provider"
 )
 
 func main() {
-	// 1. Подключение к БД (Конфигурация должна браться из config.yaml)
-	connStr := "user=postgres password=secret dbname=atm_db sslmode=disable"
-	db, err := sql.Open("postgres", connStr)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
+	// 1. Инициализация зависимостей
+	repo := terminal.NewMockRepository()
+	gridSvc := analytics.NewGridService()
+	osmProv := provider.NewOSMProvider()
 
-	// Проверка соединения
-	if err := db.Ping(); err != nil {
-		log.Fatal(err)
-	}
+	// 2. Инициализация Dashboard Service (Бизнес логика)
+	dashSvc := dashboard.NewService(repo, osmProv, gridSvc)
 
-	// 2. Инициализация слоев (Dependency Injection)
+	// 3. Инициализация Handler (HTTP слой)
+	dashHandler := dashboard.NewHandler(dashSvc)
 
-	// Слой данных (Repository)
-	analyticsRepo := postgres.NewAnalyticsRepository(db)
+	// 4. Роутинг
+	http.HandleFunc("/api/dashboard", dashHandler.ServeHTTP)
 
-	// Слой бизнес-логики (Service)
-	// Сервис получает на вход репозиторий
-	analyticsService := analytics.NewService(analyticsRepo)
-
-	// Слой представления (Handler)
-	// Хэндлер получает на вход сервис
-	dashHandler := dashboard.NewHandler(analyticsService)
-
-	// 3. Роутинг
-	http.HandleFunc("/api/v1/efficiency", dashHandler.GetTerminalEfficiency)
-
-	// 4. Запуск сервера
-	log.Println("Server starting on :8080...")
+	// 5. Старт
+	fmt.Println("🚀 GeoSmart Backend running on http://localhost:8080")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
-		log.Fatal(err)
+		fmt.Println("Error starting server:", err)
 	}
 }
