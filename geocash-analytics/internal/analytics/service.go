@@ -4,7 +4,7 @@ import (
 	"math"
 )
 
-// GeoJSON структуры для вывода
+// GeoJSON
 type GeoJSONFeatureCollection struct {
 	Type     string           `json:"type"`
 	Features []GeoJSONFeature `json:"features"`
@@ -25,9 +25,8 @@ func NewGridService() *GridService {
 	return &GridService{}
 }
 
-// GenerateHexGrid создает сетку на весь город
+// создает сетку на весь город
 func (s *GridService) GenerateHexGrid() GeoJSONFeatureCollection {
-	// Координаты Астаны
 	minLat, maxLat := 51.00, 51.30
 	minLng, maxLng := 71.30, 71.65
 	radius := 0.002
@@ -66,11 +65,10 @@ func (s *GridService) calculateWeight(lat, lng float64) float64 {
 	}
 
 	weight := 0.0
-	// Шум
+
 	noise := math.Sin(lat*400) * math.Cos(lng*400)
 	weight += (noise + 1) * 0.15
 
-	// Хотспоты
 	hotspots := []struct{ lat, lng, p float64 }{
 		{51.128, 71.430, 0.8}, {51.165, 71.425, 0.7}, {51.131, 71.402, 0.9},
 	}

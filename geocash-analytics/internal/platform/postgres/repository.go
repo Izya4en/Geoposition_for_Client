@@ -6,23 +6,20 @@ import (
 	"fmt"
 	"time"
 
-	"geocash/internal/analytics" // Импорт интерфейсов и структур аналитики
+	"geocash/internal/analytics"
 	"geocash/internal/domain/terminal"
 )
 
-// AnalyticsRepository реализует интерфейс analytics.Repository
 type AnalyticsRepository struct {
 	db *sql.DB
 }
 
-// NewAnalyticsRepository создает новый экземпляр репозитория
 func NewAnalyticsRepository(db *sql.DB) *AnalyticsRepository {
 	return &AnalyticsRepository{
 		db: db,
 	}
 }
 
-// GetPerformanceMetricsByPeriod выполняет сложный SQL-запрос для сбора метрик
 func (r *AnalyticsRepository) GetPerformanceMetricsByPeriod(
 	ctx context.Context,
 	terminalID int,
@@ -30,7 +27,6 @@ func (r *AnalyticsRepository) GetPerformanceMetricsByPeriod(
 	end time.Time,
 ) (analytics.PerformanceMetrics, error) {
 
-	// SQL-запрос с использованием CTE для параллельного сбора статистики
 	query := `
 	WITH 
 	-- 1. Считаем транзакции (количество и сумму)
@@ -72,7 +68,6 @@ func (r *AnalyticsRepository) GetPerformanceMetricsByPeriod(
 
 	var metrics analytics.PerformanceMetrics
 
-	// Выполняем запрос
 	err := r.db.QueryRowContext(ctx, query, terminalID, start, end).Scan(
 		&metrics.TotalTransactions,
 		&metrics.TotalThroughputAmount,
@@ -87,7 +82,6 @@ func (r *AnalyticsRepository) GetPerformanceMetricsByPeriod(
 	return metrics, nil
 }
 
-// GetLastKnownBalance получает последнюю запись о загрузке
 func (r *AnalyticsRepository) GetLastKnownBalance(ctx context.Context, terminalID int) (terminal.CashBalance, error) {
 	query := `
 		SELECT record_time, current_balance, max_capacity
@@ -98,7 +92,7 @@ func (r *AnalyticsRepository) GetLastKnownBalance(ctx context.Context, terminalI
 	`
 
 	var balance terminal.CashBalance
-	balance.TerminalID = terminalID // ID мы уже знаем
+	balance.TerminalID = terminalID
 
 	err := r.db.QueryRowContext(ctx, query, terminalID).Scan(
 		&balance.RecordTime,
